@@ -1,55 +1,42 @@
-// ------------------------------------------------------------
-//  Pac-Man Lattice without Overlaps (explicit If-Else for alpha)
-// ------------------------------------------------------------
-SetFactory("OpenCASCADE");
+# transfering 3dpacman.geo file in .py using pygmsh
 
-// ---------- 基础参数 ----------
-R          = 1.0;        // 球半径
-h          = 2;          // 圆柱高度
-mouthAngle = Pi/2;       // Pac-Man 嘴巴张角
-Step       = 0.5;        // 网格间距
-BoxSize    = 5;          // 网格大小
-N          = BoxSize/Step;  // 复制次数 (每轴)
 
-// ---------- Pac-Man 原型 ----------
-Cylinder(1) = {0, 0, -h/2,  0, 0, h,  R, mouthAngle};
-Sphere  (2) = {0, 0,   0,   R, -Pi/2, Pi/2, 2*Pi};
+import pygmsh
+import numpy as np
+import math
+import gmsh
 
-pac[]   = BooleanDifference{ Volume{2}; Delete; }{ Volume{1}; Delete; };
-basePac = pac[0];   // ID of the original Pac-Man at (0,0,0)
 
-// ---------- 复制 + 避免与原型重叠 ----------
-For i In {0:N}
-  For j In {0:N}
-    For k In {0:N}
+R       = 1.0;		# radius
+h       = 2;		# height
+angle   = np.pi/3;
 
-      dx = i*Step;
-      dy = j*Step;
-      dz = k*Step;
 
-      // 与 basePac 球心的平方距离
-      d2 = dx*dx + dy*dy + dz*dz;
+with pygmsh.occ.Geometry() as geom:
+    geom.characteristic_length_max = 0.1
+    sphere = geom.add_ball(center = [0, 0, 0], radius = 1)
+#classpygmsh.occ.cylinder.Cylinder(x0, axis, radius, angle=6.283)
+    cylinder = geom.add_cylinder([-1, 0, 0], [2, 0, 0], 1, angle)
 
-      // 若不会和 basePac 重叠才复制
-      If ( d2 >= (2*R)^2 - 1e-8 )
+    geom.boolean_difference(sphere, cylinder)
+    mesh = geom.generate_mesh()
+    gmsh.fltk.run()
 
-        // ---------------- 计算 alpha ----------------
-        If ( ((i + j + k) % 2) == 1 )
-          alpha = Pi;   // 奇数格：旋转 180°
-        Else
-          alpha = 0;    // 偶数格：不旋转
-        EndIf
-        // -------------------------------------------
 
-        Translate {dx, dy, dz} {
-          Rotate {0, 0, 0} {0, 0, 1, alpha} {
-            Duplicata{ Volume{basePac}; }
-          }
-        }
-      EndIf
 
-    EndFor
-  EndFor
-EndFor
+'''
+Step    = 0.5;
+BoxSize = 5;                    // side limit
+N       = BoxSize/Step;         // generate time
 
-Mesh 3;
+    for i in range(N):
+        for j in range(N):
+            for k in range(N):
+                if i == j == k == 0:
+                    continue
+                dx, dy, dz = i * Step, j * Step, k * Step
+                pac_copy = geom.copy([basepac])
+                geom.translate(pac_copy, [dx, dy, dz])
+
+
+'''
